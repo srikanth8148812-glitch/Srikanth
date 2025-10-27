@@ -1,0 +1,441 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Interactive Form Validation — Single File</title>
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --muted:#9aa6b2; --accent:#6ee7b7; --danger:#ff6b6b; --glass:rgba(255,255,255,0.03);
+      --radius:12px; font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;}
+    body{
+      margin:0; background:linear-gradient(180deg,#071028 0%, #07121a 60%); color:#e6eef6; display:flex; align-items:center; justify-content:center; padding:28px;
+    }
+    .container{width:900px; max-width:100%; background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:var(--radius); padding:24px; box-shadow:0 6px 30px rgba(2,6,23,0.7);}
+    header{display:flex; gap:16px; align-items:center; margin-bottom:10px}
+    header h1{font-size:20px;margin:0}
+    p.lead{margin:4px 0 20px;color:var(--muted)}form.grid{display:grid; grid-template-columns: 1fr 360px; gap:20px}
+@media (max-width:880px){ form.grid{grid-template-columns:1fr}}
+
+.card{background:var(--card); padding:18px; border-radius:10px}
+.field{display:flex; flex-direction:column; gap:6px; margin-bottom:12px}
+label{font-size:13px}
+input[type="text"], input[type="email"], input[type="password"], input[type="tel"], input[type="date"], select, textarea{
+  background:var(--glass); border:1px solid rgba(255,255,255,0.04); padding:10px 12px; border-radius:8px; color:inherit; font-size:14px; outline:none;
+  transition:box-shadow .18s, border-color .18s;
+}
+input:focus, select:focus, textarea:focus{box-shadow:0 6px 18px rgba(0,0,0,0.6); border-color:rgba(110,231,183,0.18)}
+.hint{font-size:12px;color:var(--muted)}
+.row{display:flex; gap:12px}
+.small{font-size:13px}
+
+.errors{color:var(--danger); font-size:13px; min-height:18px}
+.ok{color:var(--accent)}
+
+/* password strength */
+.strength{height:10px; background:rgba(255,255,255,0.03); border-radius:6px; overflow:hidden}
+.strength > i{display:block; height:100%; width:0%; transition:width .25s ease}
+.strength.weak i{width:25%; background:#ff6b6b}
+.strength.fair i{width:50%; background:#ffb86b}
+.strength.good i{width:75%; background:#ffd86b}
+.strength.strong i{width:100%; background:var(--accent)}
+
+/* submit */
+.actions{display:flex; gap:8px; align-items:center}
+button{background:linear-gradient(180deg,#1f2937,#0b1220); color:var(--accent); padding:10px 14px; border-radius:10px; border:1px solid rgba(110,231,183,0.08); cursor:pointer}
+button:disabled{opacity:0.4; cursor:not-allowed}
+
+/* live region (visually hidden) */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* right column preview */
+.preview{display:flex; flex-direction:column; gap:12px}
+.summary{font-size:14px; color:var(--muted)}
+.badge{display:inline-block; padding:6px 8px; border-radius:999px; background:rgba(255,255,255,0.03); font-size:13px}
+
+footer{margin-top:14px; text-align:right; color:var(--muted); font-size:13px}
+
+/* small success modal */
+.toast{position:fixed; right:18px; bottom:18px; background:#071025; padding:12px 14px; border-radius:10px; box-shadow:0 8px 20px rgba(2,6,23,0.7); display:none}
+.toast.show{display:block}
+
+  </style>
+</head>
+<body>
+  <div class="container" role="main">
+    <header>
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden><rect width="24" height="24" rx="6" fill="#071423"/><path d="M6 13c1.5-2 4-3 6-3s4.5 1 6 3v3H6v-3z" stroke="#6ee7b7" stroke-width="0.8"/></svg>
+      <div>
+        <h1>Interactive Form Validation</h1>
+        <p class="lead">Accessible, real-time validation with friendly messages and a password strength meter.</p>
+      </div>
+    </header><form id="signup" class="grid" novalidate>
+  <div class="card" aria-labelledby="form-heading">
+    <h2 id="form-heading" style="font-size:16px;margin:0 0 8px">Create account</h2>
+
+    <div class="field">
+      <label for="fullname">Full name</label>
+      <input id="fullname" name="fullname" type="text" required minlength="3" aria-describedby="fullname-hint fullname-error" autocomplete="name" />
+      <div id="fullname-hint" class="hint">Enter your first and last name.</div>
+      <div id="fullname-error" class="errors" aria-live="polite"></div>
+    </div>
+
+    <div class="field">
+      <label for="username">Username</label>
+      <div class="row">
+        <input id="username" name="username" type="text" required pattern="^[a-zA-Z0-9_\-]{3,20}$" aria-describedby="username-hint username-error" autocomplete="username" />
+        <div class="small badge" id="username-check">checking…</div>
+      </div>
+      <div id="username-hint" class="hint">3–20 characters: letters, numbers, underscore, or dash.</div>
+      <div id="username-error" class="errors" aria-live="polite"></div>
+    </div>
+
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" required aria-describedby="email-error" autocomplete="email" />
+      <div id="email-error" class="errors" aria-live="polite"></div>
+    </div>
+
+    <div class="row">
+      <div style="flex:1">
+        <div class="field">
+          <label for="password">Password</label>
+          <div style="position:relative">
+            <input id="password" name="password" type="password" required minlength="8" aria-describedby="pwd-hint pwd-error" autocomplete="new-password" />
+            <button type="button" id="togglePwd" aria-label="Show password" style="position:absolute;right:8px;top:8px;padding:6px;border-radius:8px;background:transparent;color:var(--muted);border:0">👁️</button>
+          </div>
+          <div id="pwd-hint" class="hint">At least 8 characters with a mix of letters, numbers and symbols.</div>
+          <div class="strength" id="pwd-strength" aria-hidden="true"><i></i></div>
+          <div id="pwd-error" class="errors" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <div style="width:200px">
+        <div class="field">
+          <label for="confirm">Confirm</label>
+          <input id="confirm" name="confirm" type="password" required aria-describedby="confirm-error" autocomplete="new-password" />
+          <div id="confirm-error" class="errors" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div style="flex:1" class="field">
+        <label for="phone">Phone</label>
+        <input id="phone" name="phone" type="tel" inputmode="tel" placeholder="+91 98765 43210" aria-describedby="phone-error" />
+        <div id="phone-error" class="errors" aria-live="polite"></div>
+      </div>
+
+      <div style="width:180px" class="field">
+        <label for="dob">Birthday</label>
+        <input id="dob" name="dob" type="date" aria-describedby="dob-error" max="2030-12-31" />
+        <div id="dob-error" class="errors" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="bio">Short bio</label>
+      <textarea id="bio" name="bio" rows="3" maxlength="300" aria-describedby="bio-hint bio-error"></textarea>
+      <div class="hint" id="bio-hint">Max 300 characters. Be concise.</div>
+      <div id="bio-error" class="errors" aria-live="polite"></div>
+    </div>
+
+    <div class="field">
+      <label for="role">Role</label>
+      <select id="role" name="role" aria-describedby="role-error">
+        <option value="">Select...</option>
+        <option value="user">User</option>
+        <option value="dev">Developer</option>
+        <option value="admin">Admin</option>
+      </select>
+      <div id="role-error" class="errors" aria-live="polite"></div>
+    </div>
+
+    <div class="actions">
+      <button id="submitBtn" type="submit">Create account</button>
+      <div class="hint" style="margin-left:6px">All fields validated client-side. Try submitting invalid inputs.</div>
+    </div>
+  </div>
+
+  <aside class="preview">
+    <div class="card">
+      <h3 style="margin:0 0 6px">Live summary</h3>
+      <div class="summary" id="liveSummary">No input yet.</div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 6px">Validation tips</h3>
+      <ul style="margin:0 0 0 18px; color:var(--muted)">
+        <li>Use a valid email (name@domain.com)</li>
+        <li>Username must be unique (simulated check)</li>
+        <li>Password strength updates in real-time</li>
+        <li>Keyboard accessible and screen-reader friendly</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 6px">Status</h3>
+      <div id="statusBox" class="hint">Form not submitted</div>
+    </div>
+  </aside>
+
+</form>
+
+<footer>Tip: try entering "user123" as username to see a simulated 'taken' response.</footer>
+
+  </div>  <div id="toast" class="toast" role="status" aria-live="polite">Account created successfully ✔</div>
+  <div class="sr-only" aria-live="polite" id="ariaAnnounce"></div>  <script>
+    // Helper functions
+    const qs = s => document.querySelector(s);
+    const id = s => document.getElementById(s);
+
+    const form = qs('#signup');
+    const fullname = id('fullname');
+    const username = id('username');
+    const email = id('email');
+    const pwd = id('password');
+    const confirm = id('confirm');
+    const phone = id('phone');
+    const dob = id('dob');
+    const bio = id('bio');
+    const role = id('role');
+    const submitBtn = id('submitBtn');
+
+    const usernameCheckEl = id('username-check');
+    const liveSummary = id('liveSummary');
+    const statusBox = id('statusBox');
+    const toast = id('toast');
+    const ariaAnnounce = id('ariaAnnounce');
+
+    // simple pattern helpers
+    const patterns = {
+      phone: /^\+?[0-9\s\-]{7,20}$/,
+      username: /^[a-zA-Z0-9_\-]{3,20}$/
+    }
+
+    // ------ realtime validation handlers ------
+    function showError(elId, msg){
+      const e = id(elId);
+      e.textContent = msg || '';
+    }
+
+    function validateFullname(){
+      const v = fullname.value.trim();
+      if(!v) return showError('fullname-error','Full name is required');
+      if(v.length < 3) return showError('fullname-error','Must be at least 3 characters');
+      showError('fullname-error','');
+      return true;
+    }
+
+    // Username: local validation + simulated availability check (debounced)
+    let usernameTimer = null;
+    function validateUsernameLocal(){
+      const v = username.value.trim();
+      if(!v) return showError('username-error','Username is required');
+      if(!patterns.username.test(v)) return showError('username-error','Invalid format');
+      showError('username-error','');
+      return true;
+    }
+
+    function checkUsernameAvailability(){
+      const v = username.value.trim();
+      usernameCheckEl.textContent = 'checking…';
+      usernameCheckEl.classList.remove('ok');
+      // simulate async with setTimeout
+      clearTimeout(usernameTimer);
+      usernameTimer = setTimeout(()=>{
+        // Simulate "taken" for a few example names
+        const taken = ['user123','admin','test','john'];
+        if(taken.includes(v.toLowerCase())){
+          usernameCheckEl.textContent = 'taken';
+          usernameCheckEl.style.color = 'var(--danger)';
+          showError('username-error','Username already taken');
+        } else {
+          usernameCheckEl.textContent = 'available';
+          usernameCheckEl.style.color = '';
+          usernameCheckEl.classList.add('ok');
+          showError('username-error','');
+        }
+      }, 700);
+    }
+
+    function validateEmail(){
+      const v = email.value.trim();
+      if(!v) return showError('email-error','Email is required');
+      // use browser built-in validation pattern as baseline
+      if(!email.checkValidity()) return showError('email-error','Enter a valid email address');
+      showError('email-error','');
+      return true;
+    }
+
+    // Password strength
+    function scorePassword(s){
+      let score = 0;
+      if(!s) return 0;
+      if(s.length >= 8) score += 1;
+      if(/[A-Z]/.test(s) && /[a-z]/.test(s)) score += 1;
+      if(/[0-9]/.test(s)) score += 1;
+      if(/[^A-Za-z0-9]/.test(s)) score += 1;
+      if(s.length >= 12) score += 1;
+      return score; // 0..5
+    }
+
+    const strengthEl = id('pwd-strength');
+    function updateStrength(){
+      const s = pwd.value;
+      const sc = scorePassword(s);
+      strengthEl.className = 'strength';
+      if(sc <= 1) strengthEl.classList.add('weak');
+      else if(sc === 2) strengthEl.classList.add('fair');
+      else if(sc === 3) strengthEl.classList.add('good');
+      else strengthEl.classList.add('strong');
+      // accessibility hint
+      const desc = sc <=1 ? 'weak' : sc===2? 'fair': sc===3? 'good':'strong';
+      strengthEl.setAttribute('aria-label','Password strength: ' + desc);
+    }
+
+    function validatePassword(){
+      const v = pwd.value;
+      if(!v) return showError('pwd-error','Password is required');
+      if(v.length < 8) return showError('pwd-error','Password must be at least 8 characters');
+      // encourage stronger password but don't block
+      showError('pwd-error','');
+      return true;
+    }
+
+    function validateConfirm(){
+      if(confirm.value !== pwd.value) return showError('confirm-error','Passwords do not match');
+      showError('confirm-error','');
+      return true;
+    }
+
+    function validatePhone(){
+      const v = phone.value.trim();
+      if(!v){ showError('phone-error',''); return true; } // optional
+      if(!patterns.phone.test(v)) return showError('phone-error','Enter a valid phone number');
+      showError('phone-error','');
+      return true;
+    }
+
+    function validateDOB(){
+      const v = dob.value;
+      if(!v) { showError('dob-error',''); return true; }
+      // example: require age >=13
+      const d = new Date(v);
+      if(Number.isNaN(d)) return showError('dob-error','Invalid date');
+      const age = ((Date.now() - d.getTime())/ (1000*60*60*24*365.25)) | 0;
+      if(age < 13) return showError('dob-error','Must be 13 or older');
+      showError('dob-error','');
+      return true;
+    }
+
+    function validateBio(){
+      if(bio.value.length > 300) return showError('bio-error','Too long');
+      showError('bio-error','');
+      return true;
+    }
+
+    function validateRole(){
+      if(!role.value) return showError('role-error','Select a role');
+      showError('role-error','');
+      return true;
+    }
+
+    // live summary
+    function updateSummary(){
+      const parts = [];
+      if(fullname.value) parts.push(`<strong>${escapeHtml(fullname.value)}</strong>`);
+      if(username.value) parts.push(`@${escapeHtml(username.value)}`);
+      if(email.value) parts.push(escapeHtml(email.value));
+      liveSummary.innerHTML = parts.length ? parts.join(' · ') : 'No input yet.';
+    }
+
+    function escapeHtml(s){ return s.replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+
+    // toggle password visibility
+    const togglePwd = id('togglePwd');
+    togglePwd.addEventListener('click', ()=>{
+      const t = pwd.type === 'password' ? 'text' : 'password';
+      pwd.type = t; confirm.type = t; togglePwd.textContent = t==='text' ? '🙈' : '👁️';
+      togglePwd.setAttribute('aria-label', t==='text' ? 'Hide password' : 'Show password');
+    });
+
+    // attach events (real-time)
+    fullname.addEventListener('input', ()=>{ validateFullname(); updateSummary(); });
+    username.addEventListener('input', ()=>{ validateUsernameLocal(); updateSummary(); if(username.value.trim().length>=3) checkUsernameAvailability(); else usernameCheckEl.textContent=''; });
+    email.addEventListener('input', ()=>{ validateEmail(); updateSummary(); });
+    pwd.addEventListener('input', ()=>{ updateStrength(); validatePassword(); validateConfirm(); });
+    confirm.addEventListener('input', ()=>{ validateConfirm(); });
+    phone.addEventListener('input', ()=>{ validatePhone(); });
+    dob.addEventListener('change', ()=>{ validateDOB(); });
+    bio.addEventListener('input', ()=>{ validateBio(); });
+    role.addEventListener('change', ()=>{ validateRole(); });
+
+    // on blur, revalidate and announce
+    [fullname, username, email, pwd, confirm, phone, dob, bio, role].forEach(el=>{
+      el.addEventListener('blur', ()=>{
+        // call the right validator
+        switch(el.id){
+          case 'fullname': validateFullname();break;
+          case 'username': validateUsernameLocal(); if(el.value.trim().length>=3) checkUsernameAvailability(); break;
+          case 'email': validateEmail();break;
+          case 'password': validatePassword();break;
+          case 'confirm': validateConfirm();break;
+          case 'phone': validatePhone();break;
+          case 'dob': validateDOB();break;
+          case 'bio': validateBio();break;
+          case 'role': validateRole();break;
+        }
+      });
+    });
+
+    // form submit
+    form.addEventListener('submit', (e)=>{
+      e.preventDefault();
+      // run all validators
+      const ok = [
+        validateFullname(),
+        validateUsernameLocal(),
+        validateEmail(),
+        validatePassword(),
+        validateConfirm(),
+        validatePhone(),
+        validateDOB(),
+        validateBio(),
+        validateRole()
+      ].every(Boolean);
+
+      if(!ok){
+        statusBox.textContent = 'There are errors. Fix them and try again.';
+        ariaAnnounce.textContent = 'Form submission failed. Please fix the highlighted errors.';
+        return;
+      }
+
+      // emulate server request
+      submitBtn.disabled = true; submitBtn.textContent = 'Saving...';
+      statusBox.textContent = 'Submitting…';
+
+      setTimeout(()=>{
+        submitBtn.disabled = false; submitBtn.textContent = 'Create account';
+        statusBox.textContent = 'Submitted — check toast';
+        toast.classList.add('show');
+        ariaAnnounce.textContent = 'Account created successfully';
+        setTimeout(()=>toast.classList.remove('show'), 4000);
+        // reset form for demo purposes
+        form.reset(); updateStrength(); updateSummary(); usernameCheckEl.textContent='';
+      }, 900);
+    });
+
+    // init
+    updateStrength();
+    updateSummary();
+
+    // accessibility: keyboard hint to toggle password with Enter/Space
+    togglePwd.addEventListener('keydown', (ev)=>{ if(ev.key==='Enter' || ev.key===' ') { ev.preventDefault(); togglePwd.click(); }});
+
+  </script></body>
+</html>
